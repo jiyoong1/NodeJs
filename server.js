@@ -1,28 +1,25 @@
 // server.js
 import express from "express";
-import { createServer } from "http";
+import http from "http";
 import { Server } from "socket.io";
 
 const app = express();
-const httpServer = createServer(app);
-
-const io = new Server(httpServer, {
-  cors: { origin: "*" }, // allow cross-origin for dev
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*" }, // allow frontend requests
 });
-
-// shared canvas state
-let canvasState = { lines: [], shapes: [], texts: [], images: [] };
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  // send current canvas to new user
-  socket.emit("updateCanvas", canvasState);
+  socket.on("joinRoom", (roomId) => {
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
+    socket.join(roomId);
+  });
 
-  // receive updates from any user
-  socket.on("updateCanvas", (update) => {
-    canvasState = { ...canvasState, ...update };
-    socket.broadcast.emit("updateCanvas", update);
+  socket.on("updateCanvas", (data) => {
+    const { roomId, ...update } = data;
+    socket.to(roomId).emit("updateCanvas", update);
   });
 
   socket.on("disconnect", () => {
@@ -30,4 +27,6 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(4000, () => console.log("Server running on http://localhost:4000"));
+server.listen(4000, () => {
+  console.log("Socket.IO server running on port 4000");
+});
